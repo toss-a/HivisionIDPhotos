@@ -275,7 +275,8 @@ curl -X POST "http://127.0.0.1:8080/generate_layout_photos" \
 -F "width=295" \
 -F "kb=200" \
 -F "dpi=300" \
--F "layout_direction=auto"
+-F "layout_direction=auto" \
+-F "crop_line=true"
 ```
 
 

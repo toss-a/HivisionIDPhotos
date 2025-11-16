@@ -89,6 +89,12 @@ parser.add_argument(
     choices=["auto", "horizontal", "vertical"],
     default="auto"
 )
+parser.add_argument(
+    "--crop_line",
+    help="添加该参数后启用排版照添加裁剪线",
+    action="store_true",
+    default=False
+)
 
 args = parser.parse_args()
 
@@ -161,6 +167,7 @@ elif args.type == "generate_layout_photos":
         typography_rotate,
         height=size[0],
         width=size[1],
+        crop_line=args.crop_line
     )
 
     if args.kb:
