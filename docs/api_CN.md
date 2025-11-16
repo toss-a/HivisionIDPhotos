@@ -117,6 +117,7 @@ python deploy_api.py
 | width | int | 否 | 输入图像的宽度，默认为`295` |
 | kb | int | 否 | 输出照片的 KB 值，默认为`None`，即不对图像进行KB调整。|
 | dpi | int | 否 | 图像分辨率，默认为`300` |
+| layout_direction | str | 否 | 排版方向，默认为`auto`。可选值为`auto`（自动）、`horizontal`（横向）、`vertical`（竖向） |
 
 **返回参数：**
 
@@ -280,7 +281,8 @@ curl -X POST "http://127.0.0.1:8080/generate_layout_photos" \
 -F "height=413" \
 -F "width=295" \
 -F "kb=200" \
--F "dpi=300"
+-F "dpi=300" \
+-F "layout_direction=auto"
 ```
 
 ### 4. 人像抠图
@@ -403,6 +405,7 @@ data = {
     "width": 295,
     "kb": 200,
     "dpi": 300,
+    "layout_direction": "auto",  # 可选值: "auto", "horizontal", "vertical"
 }
 
 response = requests.post(url, files=files, data=data).json()
@@ -410,6 +413,12 @@ response = requests.post(url, files=files, data=data).json()
 # response为一个json格式字典，包含status和image_base64
 print(response)
 ```
+
+#### 排版方向参数说明
+
+- `auto`：自动选择最佳排版方向（默认）
+- `horizontal`：横向排版
+- `vertical`：竖向排版
 
 #### 4.人像抠图
 
