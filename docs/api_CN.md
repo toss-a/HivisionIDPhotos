@@ -120,6 +120,24 @@ python deploy_api.py
 | layout_direction | str | 否 | 排版方向，默认为`auto`。可选值为`auto`（自动）、`horizontal`（横向）、`vertical`（竖向） |
 | crop_line | bool | 否 | 是否在排版照上添加裁剪线，默认为`false` |
 
+### 4.生成六寸混合排版照(4张一寸2张两寸)
+
+接口名：`generate_mixed_layout_photos`
+
+`生成六寸混合排版照`接口的逻辑是接一寸 RGB 图像和两寸 RGB 图像，根据预设`size`进行照片排布，然后生成4张一寸2张两寸排版照。
+
+**请求参数：**
+
+| 参数名 | 类型 | 必填 | 说明 |
+| :--- | :--- | :--- | :--- |
+| input_image_1_inch | file | 和`img_1_inch_base64`二选一 | 传入的图像文件，图像文件为需为RGB三通道图像。 |
+| img_1_inch_base64 | str | 和`input_image_1_inch`二选一 | 传入的图像文件的base64编码，图像文件为需为RGB三通道图像。 |
+| input_image_2_inch | file | 和`img_2_inch_base64`二选一 | 传入的图像文件，图像文件为需为RGB三通道图像。 |
+| img_2_inch_base64 | str | 和`nput_image_2_inch`二选一 | 传入的图像文件的base64编码，图像文件为需为RGB三通道图像。 |
+| kb | int | 否 | 输出照片的 KB 值，默认为`None`，即不对图像进行KB调整。|
+| dpi | int | 否 | 图像分辨率，默认为`300` |
+| crop_line | bool | 否 | 是否在排版照上添加裁剪线，默认为`false` |
+
 **返回参数：**
 
 | 参数名 | 类型 | 说明 |
@@ -129,7 +147,7 @@ python deploy_api.py
 
 <br>
 
-### 4.人像抠图
+### 5.人像抠图
 
 接口名：`human_matting`
 
@@ -152,7 +170,7 @@ python deploy_api.py
 
 <br>
 
-### 5.图像加水印
+### 6.图像加水印
 
 接口名：`watermark`
 
@@ -181,7 +199,7 @@ python deploy_api.py
 
 <br>
 
-### 6.设置图像KB大小
+### 7.设置图像KB大小
 
 接口名：`set_kb`
 
@@ -205,7 +223,7 @@ python deploy_api.py
 
 <br>
 
-### 7.证件照裁切
+### 8.证件照裁切
 
 接口名：`idphoto_crop`
 
@@ -284,6 +302,16 @@ curl -X POST "http://127.0.0.1:8080/generate_layout_photos" \
 -F "kb=200" \
 -F "dpi=300" \
 -F "layout_direction=auto" \
+-F "crop_line=true"
+```
+
+### 3. 生成六寸混合排版照(4张一寸2张两寸)
+
+```bash
+curl -X POST "http://localhost:8080/generate_mixed_layout_photos" \
+-F "input_image_1_inch=@一寸照片.jpg" \
+-F "input_image_2_inch=@两寸照片.jpg" \
+-F "dpi=300" \
 -F "crop_line=true"
 ```
 

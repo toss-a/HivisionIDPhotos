@@ -148,10 +148,32 @@ The logic of the `Human Matting` API is to receive an RGB image and output a sta
 | status | str | The status of the request, with a default value of `success`. |
 | image_base64 | str | The base64 encoding of the human matting portrait. |
 
+### 5.Generate 6-inch Mixed Layout Photos (4 pieces 1-inch & 2 pieces 2-inch)
 
+Endpoint：`generate_mixed_layout_photos`
 
+The logic of the`Generate 6-inch Mixed Layout Photos`endpoint is to accept one 1-inch RGB image and one 2-inch RGB image, arrange the photos according to a preset`size`template, and then generate a 6-inch composite photo containing 4 smaller 1-inch photos and 2 larger 2-inch photos.
 
-### 5. Add Watermark to Image
+**Request Parameters:**
+
+| Parameter Name | Type | Required | Description |
+| :--- | :--- | :--- | :--- |
+| input_image_1_inch | file | Choose one of `input_image_1_inch` or `img_1_inch_base64` | The input image file, which needs to be an RGB three-channel image. |
+| img_1_inch_base64 | str | hoose one of `input_image_1_inch` or `img_1_inch_base64` | The base64 encoding of the input image file, which needs to be an RGB three-channel image. |
+| input_image_2_inch | file | Choose one of `input_image_2_inch` or `img_2_inch_base64` | The input image file, which needs to be an RGB three-channel image. |
+| img_2_inch_base64 | str | hoose one of `input_image_2_inch` or `img_2_inch_base64` | The base64 encoding of the input image file, which needs to be an RGB three-channel image. |
+| kb | int | 否 | The target file size in KB for the output photo. Default is`None`, meaning no KB adjustment is performed.|
+| dpi | int | No | The resolution of the image in DPI. Default is`300` |
+| crop_line | bool | No | Whether to add crop lines on the layout photo. Default is`false` |
+
+**Return Parameters:**
+
+| Parameter Name | Type | Description |
+| :--- | :--- | :--- |
+| status | str | The status of the request, with a default value of `success`. |
+| image_base64 | str | The base64 encoding of the human matting portrait. |
+
+### 6. Add Watermark to Image
 
 API Name: `watermark`
 
@@ -179,7 +201,7 @@ The functionality of the `Add Watermark to Image` API is to receive a watermark 
 
 
 
-### 6. Set Image KB Size
+### 7. Set Image KB Size
 
 API Name: `set_kb`
 
@@ -204,7 +226,7 @@ The functionality of the `Set Image KB Size` API is to receive an image and a ta
 
 
 
-### 7. ID Photo Cropping
+### 8. ID Photo Cropping
 
 API Name: `idphoto_crop`
 
@@ -279,9 +301,17 @@ curl -X POST "http://127.0.0.1:8080/generate_layout_photos" \
 -F "crop_line=true"
 ```
 
+### 4. Generate 6-Inch Mixed Layout Photo (Containing 4 Passport-size and 2 ID-size Photos)
 
+```bash
+curl -X POST "http://localhost:8080/generate_mixed_layout_photos" \
+-F "input_image_1_inch=@一寸照片.jpg" \
+-F "input_image_2_inch=@两寸照片.jpg" \
+-F "dpi=300" \
+-F "crop_line=true"
+```
 
-### 4. Human Matting
+### 5. Human Matting
 
 ```bash
 curl -X POST "http://127.0.0.1:8080/human_matting" \
@@ -290,7 +320,7 @@ curl -X POST "http://127.0.0.1:8080/human_matting" \
 -F "dpi=300"
 ```
 
-### 5. Add Watermark to Image
+### 6. Add Watermark to Image
 ```bash
 curl -X 'POST' \
   'http://127.0.0.1:8080/watermark?size=20&opacity=0.5&angle=30&color=%23000000&space=25' \
@@ -301,7 +331,7 @@ curl -X 'POST' \
   -F 'dpi=300'
 ```
 
-### 6. Set Image KB Size
+### 7. Set Image KB Size
 ```bash
 curl -X 'POST' \
   'http://127.0.0.1:8080/set_kb' \
@@ -312,7 +342,7 @@ curl -X 'POST' \
   -F 'dpi=300'
 ```
 
-### 7. ID Photo Cropping
+### 8. ID Photo Cropping
 ```bash
 curl -X 'POST' \
   'http://127.0.0.1:8080/idphoto_crop?head_measure_ratio=0.2&head_height_ratio=0.45&top_distance_max=0.12&top_distance_min=0.1' \

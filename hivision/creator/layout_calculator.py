@@ -186,3 +186,94 @@ def generate_layout_image(
 
     # 返回排版后的图像
     return white_background
+
+
+def generate_mixed_layout_image(
+    image_1_inch, image_2_inch,
+    crop_line: bool = False,
+    LAYOUT_WIDTH=1795,
+    LAYOUT_HEIGHT=1205,
+):
+    """
+    混合排版：在6寸纸张上排4张一寸照片和2张两寸照片
+    一寸照片尺寸：295x413 (宽x高)
+    两寸照片尺寸：413x626 (宽x高)
+
+    布局方案：左侧4张一寸（2x2），右侧2张两寸（竖排）
+    """
+    # 一寸和两寸照片的标准尺寸
+    width_1_inch, height_1_inch = 295, 413
+    width_2_inch, height_2_inch = 413, 626
+
+    PHOTO_INTERVAL = 30
+
+    # 调整图像大小
+    if image_1_inch.shape[:2] != (height_1_inch, width_1_inch):
+        image_1_inch = cv2.resize(image_1_inch, (width_1_inch, height_1_inch))
+    if image_2_inch.shape[:2] != (height_2_inch, width_2_inch):
+        image_2_inch = cv2.resize(image_2_inch, (width_2_inch, height_2_inch))
+
+    # 创建白色背景
+    white_background = np.zeros([LAYOUT_HEIGHT, LAYOUT_WIDTH, 3], np.uint8)
+    white_background.fill(255)
+
+    # 计算布局：左侧4张一寸（2x2），右侧2张两寸（竖排）
+    # 左侧一寸照片区域
+    left_section_width = width_1_inch * 2 + PHOTO_INTERVAL
+    left_section_height = height_1_inch * 2 + PHOTO_INTERVAL
+
+    # 右侧两寸照片区域（竖排，但只放1张，因为2张会超高）
+    # 实际上2张两寸竖排需要 626*2+30=1282 > 1205，所以改为横向旋转放置
+    # 或者缩小间距，让我们尝试紧凑布局
+
+    # 方案：左侧4张一寸（2x2），右侧2张两寸横向放置（旋转90度）
+    # 两寸照片旋转后：626x413 变成 413x626
+    right_section_width = height_2_inch  # 旋转后的宽度
+    right_section_height = width_2_inch * 2 + PHOTO_INTERVAL  # 旋转后2张的高度
+
+    # 总宽度
+    total_width = left_section_width + PHOTO_INTERVAL + right_section_width
+
+    # 使用较大的高度
+    max_height = max(left_section_height, right_section_height)
+
+    # 计算起始位置（居中）
+    start_x = (LAYOUT_WIDTH - total_width) // 2
+    start_y = (LAYOUT_HEIGHT - max_height) // 2
+
+    # 放置4张一寸照片（左侧，2x2排列）
+    positions_1_inch = []
+    for row in range(2):
+        for col in range(2):
+            x = start_x + col * (width_1_inch + PHOTO_INTERVAL)
+            y = start_y + row * (height_1_inch + PHOTO_INTERVAL)
+            white_background[y:y + height_1_inch, x:x + width_1_inch] = image_1_inch
+            positions_1_inch.append((x, y, width_1_inch, height_1_inch))
+
+    # 放置2张两寸照片（右侧，横向旋转90度后竖排）
+    positions_2_inch = []
+    right_start_x = start_x + left_section_width + PHOTO_INTERVAL
+
+    # 旋转两寸照片（逆时针90度）
+    image_2_inch_rotated = cv2.rotate(image_2_inch, cv2.ROTATE_90_COUNTERCLOCKWISE)
+    rotated_height, rotated_width = image_2_inch_rotated.shape[:2]  # 应该是 413x626
+
+    for i in range(2):
+        x = right_start_x
+        y = start_y + i * (rotated_height + PHOTO_INTERVAL)
+        white_background[y:y + rotated_height, x:x + rotated_width] = image_2_inch_rotated
+        positions_2_inch.append((x, y, rotated_width, rotated_height))
+
+    # 添加裁剪线
+    if crop_line:
+        line_color = (200, 200, 200)
+        line_thickness = 1
+
+        # 为所有照片添加裁剪线
+        for x, y, w, h in positions_1_inch + positions_2_inch:
+            cv2.line(white_background, (x, 0), (x, LAYOUT_HEIGHT), line_color, line_thickness)
+            cv2.line(white_background, (x + w, 0), (x + w, LAYOUT_HEIGHT), line_color, line_thickness)
+            cv2.line(white_background, (0, y), (LAYOUT_WIDTH, y), line_color, line_thickness)
+            cv2.line(white_background, (0, y + h), (LAYOUT_WIDTH, y + h), line_color, line_thickness)
+
+    return white_background

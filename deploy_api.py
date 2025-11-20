@@ -4,6 +4,7 @@ from hivision.error import FaceError
 from hivision.creator.layout_calculator import (
     generate_layout_array,
     generate_layout_image,
+    generate_mixed_layout_image,
 )
 from hivision.creator.choose_handler import choose_handler
 from hivision.utils import (
@@ -369,6 +370,56 @@ async def idphoto_crop_inference(
         if hd:
             result_image_hd_bytes = save_image_dpi_to_bytes(cv2.cvtColor(result.hd, cv2.COLOR_RGBA2BGRA), None, dpi)
             result_message["image_base64_hd"] = bytes_2_base64(result_image_hd_bytes)
+
+    return result_message
+
+
+# 混合排版接口：4张一寸+2张两寸
+@app.post("/generate_mixed_layout_photos")
+async def generate_mixed_layout_photos(
+    input_image_1_inch: UploadFile = File(None),
+    input_image_1_inch_base64: str = Form(None),
+    input_image_2_inch: UploadFile = File(None),
+    input_image_2_inch_base64: str = Form(None),
+    kb: int = Form(None),
+    dpi: int = Form(300),
+    crop_line: bool = Form(False),
+):
+    # 读取一寸照片
+    if input_image_1_inch_base64:
+        img_1_inch = base64_2_numpy(input_image_1_inch_base64)
+    else:
+        image_bytes = await input_image_1_inch.read()
+        nparr = np.frombuffer(image_bytes, np.uint8)
+        img_1_inch = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+    # 读取两寸照片
+    if input_image_2_inch_base64:
+        img_2_inch = base64_2_numpy(input_image_2_inch_base64)
+    else:
+        image_bytes = await input_image_2_inch.read()
+        nparr = np.frombuffer(image_bytes, np.uint8)
+        img_2_inch = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+    # 生成混合排版图像
+    result_layout_image = generate_mixed_layout_image(
+        img_1_inch, img_2_inch, crop_line=crop_line
+    ).astype(np.uint8)
+
+    result_layout_image = cv2.cvtColor(result_layout_image, cv2.COLOR_RGB2BGR)
+    if kb:
+        result_layout_image_bytes = resize_image_to_kb(
+            result_layout_image, None, int(kb), dpi=dpi
+        )
+    else:
+        result_layout_image_bytes = save_image_dpi_to_bytes(result_layout_image, None, dpi=dpi)
+
+    result_layout_image_base64 = bytes_2_base64(result_layout_image_bytes)
+
+    result_message = {
+        "status": True,
+        "image_base64": result_layout_image_base64,
+    }
 
     return result_message
 
