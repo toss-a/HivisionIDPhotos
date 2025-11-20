@@ -156,33 +156,23 @@ def generate_layout_image(
         )
 
     if crop_line:
-        # 添加裁剪线
+        # 添加裁剪线 - 在每张照片边缘绘制灰色线条
         line_color = (200, 200, 200)  # 浅灰色
         line_thickness = 1
 
-        # 初始化裁剪线位置列表
-        vertical_lines = []
-        horizontal_lines = []
-
-        # 根据排版数组添加裁剪线
+        # 为每张照片绘制边框线条
         for arr in typography_arr:
             x, y = arr[0], arr[1]
-            if x not in vertical_lines:
-                vertical_lines.append(x)
-            if x + width not in vertical_lines:
-                vertical_lines.append(x + width)
-            if y not in horizontal_lines:
-                horizontal_lines.append(y)
-            if y + height not in horizontal_lines:
-                horizontal_lines.append(y + height)
 
-        # 绘制垂直裁剪线
-        for x in vertical_lines:
-            cv2.line(white_background, (x, 0), (x, LAYOUT_HEIGHT), line_color, line_thickness)
-
-        # 绘制水平裁剪线
-        for y in horizontal_lines:
-            cv2.line(white_background, (0, y), (LAYOUT_WIDTH, y), line_color, line_thickness)
+            # 绘制照片的四条边缘线
+            # 左边缘
+            cv2.line(white_background, (x, y), (x, y + height), line_color, line_thickness)
+            # 右边缘
+            cv2.line(white_background, (x + width, y), (x + width, y + height), line_color, line_thickness)
+            # 上边缘
+            cv2.line(white_background, (x, y), (x + width, y), line_color, line_thickness)
+            # 下边缘
+            cv2.line(white_background, (x, y + height), (x + width, y + height), line_color, line_thickness)
 
     # 返回排版后的图像
     return white_background
@@ -264,16 +254,20 @@ def generate_mixed_layout_image(
         white_background[y:y + rotated_height, x:x + rotated_width] = image_2_inch_rotated
         positions_2_inch.append((x, y, rotated_width, rotated_height))
 
-    # 添加裁剪线
+    # 添加裁剪线 - 在每张照片边缘绘制灰色线条
     if crop_line:
-        line_color = (200, 200, 200)
+        line_color = (200, 200, 200)  # 浅灰色
         line_thickness = 1
 
-        # 为所有照片添加裁剪线
+        # 为所有照片添加边框线条
         for x, y, w, h in positions_1_inch + positions_2_inch:
-            cv2.line(white_background, (x, 0), (x, LAYOUT_HEIGHT), line_color, line_thickness)
-            cv2.line(white_background, (x + w, 0), (x + w, LAYOUT_HEIGHT), line_color, line_thickness)
-            cv2.line(white_background, (0, y), (LAYOUT_WIDTH, y), line_color, line_thickness)
-            cv2.line(white_background, (0, y + h), (LAYOUT_WIDTH, y + h), line_color, line_thickness)
+            # 左边缘
+            cv2.line(white_background, (x, y), (x, y + h), line_color, line_thickness)
+            # 右边缘
+            cv2.line(white_background, (x + w, y), (x + w, y + h), line_color, line_thickness)
+            # 上边缘
+            cv2.line(white_background, (x, y), (x + w, y), line_color, line_thickness)
+            # 下边缘
+            cv2.line(white_background, (x, y + h), (x + w, y + h), line_color, line_thickness)
 
     return white_background
