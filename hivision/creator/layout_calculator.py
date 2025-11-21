@@ -84,7 +84,7 @@ def judge_layout(
             return layout_mode, centerBlockWidth_1, centerBlockHeight_1
 
 
-def generate_layout_array(input_height, input_width, LAYOUT_WIDTH=1795, LAYOUT_HEIGHT=1205, layout_direction=None):
+def generate_layout_array(input_height, input_width, LAYOUT_WIDTH=1800, LAYOUT_HEIGHT=1200, layout_direction=None):
     # 1.基础参数表
     PHOTO_INTERVAL_H = 30  # 证件照与证件照之间的垂直距离
     PHOTO_INTERVAL_W = 30  # 证件照与证件照之间的水平距离
@@ -128,8 +128,8 @@ def generate_layout_array(input_height, input_width, LAYOUT_WIDTH=1795, LAYOUT_H
 def generate_layout_image(
     input_image, typography_arr, typography_rotate, width=295, height=413, 
     crop_line:bool=False,
-    LAYOUT_WIDTH=1795, 
-    LAYOUT_HEIGHT=1205,
+    LAYOUT_WIDTH=1800, 
+    LAYOUT_HEIGHT=1200,
 ):
   
     # 创建一个白色背景的空白画布
@@ -181,8 +181,8 @@ def generate_layout_image(
 def generate_mixed_layout_image(
     image_1_inch, image_2_inch,
     crop_line: bool = False,
-    LAYOUT_WIDTH=1795,
-    LAYOUT_HEIGHT=1205,
+    LAYOUT_WIDTH=1800,
+    LAYOUT_HEIGHT=1200,
 ):
     """
     混合排版：在6寸纸张上排4张一寸照片和2张两寸照片
