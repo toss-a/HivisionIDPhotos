@@ -10,10 +10,12 @@
   - [1.生成证件照(底透明)](#1生成证件照底透明)
   - [2.添加背景色](#2添加背景色)
   - [3.生成六寸排版照](#3生成六寸排版照)
-  - [4.人像抠图](#4人像抠图)
-  - [5.图像加水印](#5图像加水印)
-  - [6.设置图像KB大小](#6设置图像KB大小)
-  - [7.证件照裁切](#7证件照裁切)
+  - [4.生成六寸混合排版照(4张一寸2张两寸)](#4生成六寸混合排版照4张一寸2张两寸)
+  - [5.人像抠图](#5人像抠图)
+  - [6.图像加水印](#6图像加水印)
+  - [7.设置图像KB大小](#7设置图像kb大小)
+  - [8.证件照裁切](#8证件照裁切)
+  - [9.照片裁切建议](#9照片裁切建议)
 - [cURL 请求示例](#curl-请求示例)
 - [Python 请求示例](#python-请求示例)
 
@@ -255,6 +257,41 @@ python deploy_api.py
 
 <br>
 
+### 9.照片裁切建议
+
+接口名：`photo_crop_hint`
+
+`照片裁切建议`接口在裁切前提供人脸偏移的推荐裁切框：先将长边缩放至`detect_max_side`降低检测开销，优先使用 RetinaFace（可选 MTCNN）检测主脸，失败时自动回退为按目标比例的居中裁切框。
+
+**请求参数：**
+
+| 参数名 | 类型 | 必填 | 说明 |
+| :--- | :--- | :--- | :--- |
+| input_image | file | 和`input_image_base64`二选一 | 待检测的图像文件。 |
+| input_image_base64 | str | 和`input_image`二选一 | 待检测的图像 base64 编码。 |
+| target_width | float | 否 | 目标纸张宽度，仅用于比例，默认`152.4`。 |
+| target_height | float | 否 | 目标纸张高度，仅用于比例，默认`101.6`。 |
+| face_detect_model | str | 否 | 人脸检测模型，默认为`retinaface-resnet50`，可选`mtcnn`。 |
+| padding_ratio | float | 否 | 推荐框在脸部周围预留的额外比例，默认`0.25`。 |
+| detect_max_side | int | 否 | 检测前缩放的最长边，默认`640`，用于降低 CPU 占用。 |
+
+**返回参数：**
+
+| 参数名 | 类型 | 说明 |
+| :--- | :--- | :--- |
+| status | bool | 请求是否成功。 |
+| detected | bool | 是否检测到人脸。 |
+| model | str | 实际使用的人脸检测模型。 |
+| image_size | dict | 原图尺寸`{width,height}`。 |
+| target_ratio | float | 目标宽高比。 |
+| crop_box | dict | 推荐裁切框`{x,y,width,height}`（保持目标比例且落在原图内）。 |
+| face_box | dict | 主脸检测框`{x1,y1,x2,y2,score}`，检测成功时提供。 |
+| detect_error | str/null | 检测异常信息，未触发时为`null`。 |
+
+说明：当`detected=false`或出现`detect_error`时，`crop_box`依然提供按目标比例的居中裁切，可直接用于打印；检测成功时裁切框会偏向人脸并保留`padding_ratio`的余量。
+
+<br>
+
 ## cURL 请求示例
 
 cURL 是一个命令行工具，用于使用各种网络协议传输数据。以下是使用 cURL 调用这些 API 的示例。
@@ -305,7 +342,7 @@ curl -X POST "http://127.0.0.1:8080/generate_layout_photos" \
 -F "crop_line=true"
 ```
 
-### 3. 生成六寸混合排版照(4张一寸2张两寸)
+### 4. 生成六寸混合排版照(4张一寸2张两寸)
 
 ```bash
 curl -X POST "http://localhost:8080/generate_mixed_layout_photos" \
@@ -315,7 +352,7 @@ curl -X POST "http://localhost:8080/generate_mixed_layout_photos" \
 -F "crop_line=true"
 ```
 
-### 4. 人像抠图
+### 5. 人像抠图
 
 ```bash
 curl -X POST "http://127.0.0.1:8080/human_matting" \
@@ -324,7 +361,7 @@ curl -X POST "http://127.0.0.1:8080/human_matting" \
 -F "dpi=300"
 ```
 
-### 5. 图片加水印
+### 6. 图片加水印
 ```bash
 curl -X 'POST' \
   'http://127.0.0.1:8080/watermark?size=20&opacity=0.5&angle=30&color=%23000000&space=25' \
@@ -335,7 +372,7 @@ curl -X 'POST' \
   -F 'dpi=300'
 ```
 
-### 6. 设置图像KB大小
+### 7. 设置图像KB大小
 ```bash
 curl -X 'POST' \
   'http://127.0.0.1:8080/set_kb' \
@@ -346,7 +383,7 @@ curl -X 'POST' \
   -F 'dpi=300'
 ```
 
-### 7. 证件照裁切
+### 8. 证件照裁切
 ```bash
 curl -X 'POST' 'http://127.0.0.1:8080/idphoto_crop' \
   -H 'accept: application/json' \
@@ -362,6 +399,34 @@ curl -X 'POST' 'http://127.0.0.1:8080/idphoto_crop' \
   -F 'top_distance_min=0.1' \
   -F 'top_distance_max=0.12'
 ```
+
+### 9. 照片裁切建议
+```bash
+curl -X POST http://127.0.0.1:8080/photo_crop_hint \
+  -F "input_image=@/path/photo.jpg" \
+  -F "target_width=152.4" \
+  -F "target_height=101.6" \
+  -F "face_detect_model=retinaface-resnet50" \
+  -F "padding_ratio=0.25" \
+  -F "detect_max_side=640"
+```
+
+示例返回：
+
+```json
+{
+  "status": true,
+  "detected": true,
+  "model": "retinaface-resnet50",
+  "image_size": {"width": 3024, "height": 4032},
+  "target_ratio": 1.5,
+  "crop_box": {"x": 234, "y": 512, "width": 2016, "height": 1344},
+  "face_box": {"x1": 880, "y1": 900, "x2": 1240, "y2": 1340, "score": 0.98},
+  "detect_error": null
+}
+```
+
+说明：`detected=false`或`detect_error`存在时，返回的`crop_box`为按目标比例的居中框。
 
 <br>
 
@@ -560,5 +625,30 @@ if response.ok:
     print(response.json())
 else:
     # 输出错误信息
+    print(f"Request failed with status code {response.status_code}: {response.text}")
+```
+
+### 8. 照片裁切建议
+
+```python
+import requests
+
+url = "http://127.0.0.1:8080/photo_crop_hint"
+input_image_path = "/path/photo.jpg"
+
+files = {"input_image": open(input_image_path, "rb")}
+data = {
+    "target_width": 152.4,
+    "target_height": 101.6,
+    "face_detect_model": "retinaface-resnet50",
+    "padding_ratio": 0.25,
+    "detect_max_side": 640,
+}
+
+response = requests.post(url, files=files, data=data)
+
+if response.ok:
+    print(response.json())
+else:
     print(f"Request failed with status code {response.status_code}: {response.text}")
 ```

@@ -17,8 +17,10 @@ from hivision.utils import (
     save_image_dpi_to_bytes,
     convert_layout_direction,
 )
+from hivision.creator.retinaface import retinaface_detect_faces
 import numpy as np
 import cv2
+import os
 from starlette.middleware.cors import CORSMiddleware
 from starlette.formparsers import MultiPartParser
 
@@ -29,6 +31,183 @@ MultiPartParser.max_file_size = 20 * 1024 * 1024   # 20MB
 
 app = FastAPI()
 creator = IDCreator()
+retinaface_sess = None
+mtcnn_detector = None
+RETINAFACE_MODEL_PATH = os.path.join(
+    os.path.dirname(__file__),
+    "hivision",
+    "creator",
+    "retinaface",
+    "weights",
+    "retinaface-resnet50.onnx",
+)
+
+
+async def _read_image(input_image, input_image_base64, flags=cv2.IMREAD_COLOR):
+    if input_image_base64:
+        img = base64_2_numpy(input_image_base64)
+    else:
+        image_bytes = await input_image.read()
+        nparr = np.frombuffer(image_bytes, np.uint8)
+        img = cv2.imdecode(nparr, flags)
+
+    if img is None:
+        return img
+
+    if len(img.shape) == 2 and flags == cv2.IMREAD_COLOR:
+        img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+    elif img.shape[2] == 4 and flags == cv2.IMREAD_COLOR:
+        img = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
+
+    return img
+
+
+def _resize_for_detect(image: np.ndarray, max_side: int = 640):
+    h, w = image.shape[:2]
+    scale = 1.0
+    if max(h, w) > max_side:
+        scale = max_side / float(max(h, w))
+        new_w = max(1, int(w * scale))
+        new_h = max(1, int(h * scale))
+        resized = cv2.resize(image, (new_w, new_h), interpolation=cv2.INTER_AREA)
+        return resized, scale
+    return image, scale
+
+
+def _pick_main_face(faces, img_w, img_h):
+    if not faces:
+        return None
+    cx_img = img_w / 2
+    cy_img = img_h / 2
+
+    def sort_key(face):
+        x1, y1, x2, y2 = face["box"]
+        area = (x2 - x1) * (y2 - y1)
+        cx = x1 + (x2 - x1) / 2
+        cy = y1 + (y2 - y1) / 2
+        dist_penalty = ((cx - cx_img) / img_w) ** 2 + ((cy - cy_img) / img_h) ** 2
+        return (face.get("score", 0), area, -dist_penalty)
+
+    return sorted(faces, key=sort_key, reverse=True)[0]
+
+
+def _detect_faces(image_bgr: np.ndarray, model: str = "retinaface-resnet50", max_side: int = 640):
+    global retinaface_sess, mtcnn_detector
+
+    resized, scale = _resize_for_detect(image_bgr, max_side=max_side)
+    scale = scale if scale > 0 else 1.0
+
+    faces = []
+    if model == "mtcnn":
+        try:
+            if mtcnn_detector is None:
+                from mtcnnruntime import MTCNN
+
+                mtcnn_detector = MTCNN()
+            dets, _ = mtcnn_detector.detect(resized)
+        except Exception as exc:
+            raise RuntimeError(f"MTCNN 初始化或推理失败: {exc}") from exc
+
+        if dets is None:
+            return []
+
+        for det in dets:
+            if len(det) < 5:
+                continue
+            x1, y1, x2, y2, score = det[:5]
+            faces.append(
+                {
+                    "box": [float(x1 / scale), float(y1 / scale), float(x2 / scale), float(y2 / scale)],
+                    "score": float(score),
+                }
+            )
+    else:
+        if not os.path.exists(RETINAFACE_MODEL_PATH):
+            raise FileNotFoundError(f"未找到 RetinaFace 模型权重: {RETINAFACE_MODEL_PATH}")
+        try:
+            dets, retinaface_sess = retinaface_detect_faces(
+                resized, RETINAFACE_MODEL_PATH, sess=retinaface_sess
+            )
+        except Exception as exc:
+            raise RuntimeError(f"RetinaFace 推理失败: {exc}") from exc
+
+        for det in dets:
+            if len(det) < 5:
+                continue
+            x1, y1, x2, y2, score = det[:5]
+            faces.append(
+                {
+                    "box": [float(x1 / scale), float(y1 / scale), float(x2 / scale), float(y2 / scale)],
+                    "score": float(score),
+                }
+            )
+
+    return faces
+
+
+def _suggest_crop_box(img_shape, target_height, target_width, face_box=None, padding_ratio=0.25):
+    """
+    尽量保留更多画面：先取在原图内面积最大的目标比例框，再偏向人脸并确保人脸+padding 能容纳。
+    """
+    img_h, img_w = img_shape[:2]
+    if target_height <= 0 or target_width <= 0:
+        target_ratio = img_w / img_h
+    else:
+        target_ratio = float(target_width) / float(target_height)
+
+    # 原图内能容纳的最大目标比例框
+    img_ratio = img_w / img_h
+    if img_ratio > target_ratio:
+        base_h = img_h
+        base_w = base_h * target_ratio
+    else:
+        base_w = img_w
+        base_h = base_w / target_ratio
+
+    crop_w, crop_h = base_w, base_h
+    cx = img_w / 2
+    cy = img_h / 2
+
+    if face_box:
+        x1, y1, x2, y2 = face_box
+        box_w = x2 - x1
+        box_h = y2 - y1
+        cx = x1 + box_w / 2
+        cy = y1 + box_h / 2
+
+        pad_w = box_w * padding_ratio
+        pad_h = box_h * padding_ratio
+        need_w = box_w + pad_w * 2
+        need_h = box_h + pad_h * 2
+
+        # 保证人脸+padding 能放下，同时不小于基础最大取景
+        crop_w = max(crop_w, need_w, need_h * target_ratio)
+        crop_h = max(crop_h, need_h, need_w / target_ratio)
+
+        # 限制不超过原图
+        if crop_w > img_w:
+            crop_w = img_w
+            crop_h = crop_w / target_ratio
+        if crop_h > img_h:
+            crop_h = img_h
+            crop_w = crop_h * target_ratio
+
+    # 将中心偏向人脸但保持在范围内
+    half_w = crop_w / 2
+    half_h = crop_h / 2
+    cx = min(max(cx, half_w), img_w - half_w)
+    cy = min(max(cy, half_h), img_h - half_h)
+
+    left = max(0, cx - half_w)
+    top = max(0, cy - half_h)
+
+    crop_box = {
+        "x": int(round(left)),
+        "y": int(round(top)),
+        "width": int(round(crop_w)),
+        "height": int(round(crop_h)),
+    }
+    return crop_box, target_ratio
 
 # 添加 CORS 中间件 解决跨域问题
 app.add_middleware(
@@ -286,6 +465,77 @@ async def watermark(
     return result_messgae
 
 
+@app.post("/photo_crop_hint")
+async def photo_crop_hint(
+    input_image: UploadFile = File(None),
+    input_image_base64: str = Form(None),
+    target_height: float = Form(101.6),
+    target_width: float = Form(152.4),
+    face_detect_model: str = Form("retinaface-resnet50"),
+    padding_ratio: float = Form(0.25),
+    detect_max_side: int = Form(640),
+):
+    """
+    提供给照片打印的裁切建议接口：
+    - 默认使用 RetinaFace 人脸检测，可选 mtcnn
+    - 先将长边缩放到 detect_max_side 后再检测，降低 CPU 开销
+    - 检测失败时返回居中裁切方案
+    """
+    try:
+        img = await _read_image(input_image, input_image_base64, flags=cv2.IMREAD_COLOR)
+    except Exception as exc:
+        return {"status": False, "error": f"读取图片失败: {exc}"}
+
+    if img is None:
+        return {"status": False, "error": "未获取到有效图片"}
+
+    img_h, img_w = img.shape[:2]
+    faces = []
+    detect_error = None
+    face_detect_model = face_detect_model or "retinaface-resnet50"
+
+    try:
+        faces = _detect_faces(img, model=face_detect_model, max_side=int(detect_max_side))
+    except Exception as exc:
+        detect_error = str(exc)
+
+    main_face = _pick_main_face(faces, img_w, img_h)
+    face_box = None
+    if main_face:
+        x1, y1, x2, y2 = main_face["box"]
+        face_box = [
+            max(0, x1),
+            max(0, y1),
+            min(img_w, x2),
+            min(img_h, y2),
+        ]
+
+    crop_box, target_ratio = _suggest_crop_box(
+        img.shape, float(target_height), float(target_width), face_box, padding_ratio=max(0, padding_ratio)
+    )
+
+    response = {
+        "status": True,
+        "detected": bool(main_face),
+        "model": face_detect_model,
+        "image_size": {"width": img_w, "height": img_h},
+        "target_ratio": target_ratio,
+        "crop_box": crop_box,
+        "detect_error": detect_error,
+    }
+
+    if main_face:
+        response["face_box"] = {
+            "x1": int(round(face_box[0])),
+            "y1": int(round(face_box[1])),
+            "x2": int(round(face_box[2])),
+            "y2": int(round(face_box[3])),
+            "score": float(main_face.get("score", 0)),
+        }
+
+    return response
+
+
 # 设置照片KB值接口(RGB图)
 @app.post("/set_kb")
 async def set_kb(
@@ -428,4 +678,4 @@ if __name__ == "__main__":
     import uvicorn
 
     # 在8080端口运行推理服务
-    uvicorn.run(app, host="0.0.0.0", port=8080)
+    uvicorn.run(app, host="0.0.0.0", port=8000)

@@ -10,9 +10,11 @@ English / [中文](api_CN.md)
   - [2. Add Background Color](#2-add-background-color)
   - [3. Generate Six-Inch Layout Photo](#3-generate-six-inch-layout-photo)
   - [4. Human Matting](#4-human-matting)
-  - [5. Add Watermark to Image](#5-add-watermark-to-image)
-  - [6. Set Image KB Size](#6-set-image-kb-size)
-  - [7. ID Photo Cropping](#7-id-photo-cropping)
+  - [5. Generate Six-Inch Mixed Layout Photos (4 pieces 1-inch & 2 pieces 2-inch)](#5generate-6-inch-mixed-layout-photos-4-pieces-1-inch--2-pieces-2-inch)
+  - [6. Add Watermark to Image](#6-add-watermark-to-image)
+  - [7. Set Image KB Size](#7-set-image-kb-size)
+  - [8. ID Photo Cropping](#8-id-photo-cropping)
+  - [9. Photo Crop Hint](#9-photo-crop-hint)
 - [cURL Request Examples](#curl-request-examples)
 - [Python Request Examples](#python-request-examples)
 
@@ -255,6 +257,39 @@ The functionality of the `ID Photo Cropping` API is to receive an RGBA image (tr
 | status | str | The status of the request, with a default value of `success`. |
 | image_base64 | str | The base64 encoding of the ID photo. |
 
+### 9. Photo Crop Hint
+
+API Name: `photo_crop_hint`
+
+The `Photo Crop Hint` API provides a recommended crop box before printing: it downsamples the long side to `detect_max_side` to reduce CPU usage, prefers RetinaFace (optional MTCNN) to detect the main face, and falls back to a centered box with the target ratio when detection fails.
+
+**Request Parameters:**
+
+| Parameter Name | Type | Required | Description |
+| :--- | :--- | :--- | :--- |
+| input_image | file | Choose one of `input_image` or `input_image_base64` | Image file to analyze. |
+| input_image_base64 | str | Choose one of `input_image` or `input_image_base64` | Base64-encoded image to analyze. |
+| target_width | float | No | Target paper width, used only for ratio, default `152.4`. |
+| target_height | float | No | Target paper height, used only for ratio, default `101.6`. |
+| face_detect_model | str | No | Face detector, default `retinaface-resnet50`, optional `mtcnn`. |
+| padding_ratio | float | No | Extra margin kept around the face in the crop box, default `0.25`. |
+| detect_max_side | int | No | Longest side after downscaling before detection, default `640`. |
+
+**Return Parameters:**
+
+| Parameter Name | Type | Description |
+| :--- | :--- | :--- |
+| status | bool | Whether the request is successful. |
+| detected | bool | Whether a face is detected. |
+| model | str | The detector actually used. |
+| image_size | dict | Original image size `{width, height}`. |
+| target_ratio | float | Target aspect ratio. |
+| crop_box | dict | Recommended crop box `{x,y,width,height}` (keeps target ratio and stays within the image). |
+| face_box | dict | Main face box `{x1,y1,x2,y2,score}` when detection succeeds. |
+| detect_error | str/null | Detection error message, or `null` if none. |
+
+Note: When `detected=false` or `detect_error` is present, `crop_box` still returns a centered box with the target ratio that can be used directly for printing; when detection succeeds, the box is biased toward the face and preserves `padding_ratio`.
+
 
 
 <br>
@@ -355,6 +390,34 @@ curl -X 'POST' \
   -F 'hd=true' \
   -F 'dpi=300'
 ```
+
+### 9. Photo Crop Hint
+```bash
+curl -X POST http://127.0.0.1:8080/photo_crop_hint \
+  -F "input_image=@/path/photo.jpg" \
+  -F "target_width=152.4" \
+  -F "target_height=101.6" \
+  -F "face_detect_model=retinaface-resnet50" \
+  -F "padding_ratio=0.25" \
+  -F "detect_max_side=640"
+```
+
+Sample response:
+
+```json
+{
+  "status": true,
+  "detected": true,
+  "model": "retinaface-resnet50",
+  "image_size": {"width": 3024, "height": 4032},
+  "target_ratio": 1.5,
+  "crop_box": {"x": 234, "y": 512, "width": 2016, "height": 1344},
+  "face_box": {"x1": 880, "y1": 900, "x2": 1240, "y2": 1340, "score": 0.98},
+  "detect_error": null
+}
+```
+
+When `detected=false` or `detect_error` is present, the returned `crop_box` is the centered crop with the target ratio.
 
 <br>
 
@@ -546,5 +609,30 @@ if response.ok:
     print(response.json())
 else:
     # Output error message
+    print(f"Request failed with status code {response.status_code}: {response.text}")
+```
+
+### 8. Photo Crop Hint
+
+```python
+import requests
+
+url = "http://127.0.0.1:8080/photo_crop_hint"
+input_image_path = "/path/photo.jpg"
+
+files = {"input_image": open(input_image_path, "rb")}
+data = {
+    "target_width": 152.4,
+    "target_height": 101.6,
+    "face_detect_model": "retinaface-resnet50",
+    "padding_ratio": 0.25,
+    "detect_max_side": 640,
+}
+
+response = requests.post(url, files=files, data=data)
+
+if response.ok:
+    print(response.json())
+else:
     print(f"Request failed with status code {response.status_code}: {response.text}")
 ```
