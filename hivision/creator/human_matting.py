@@ -14,27 +14,30 @@ from .tensor2numpy import NNormalize, NTo_Tensor, NUnsqueeze
 from .context import Context
 import cv2
 import os
+import sys
+from pathlib import Path
 from time import time
 
 
+def resource_path(rel_path: str) -> Path:
+    """Resolve resource path for both normal and PyInstaller-frozen execution."""
+    if getattr(sys, "frozen", False):
+        base_dir = Path(sys.executable).resolve().parent
+    else:
+        base_dir = Path(__file__).resolve().parent
+    return base_dir / rel_path
+
+
 WEIGHTS = {
-    "hivision_modnet": os.path.join(
-        os.path.dirname(__file__), "weights", "hivision_modnet.onnx"
+    "hivision_modnet": resource_path("hivision/creator/weights/hivision_modnet.onnx"),
+    "modnet_photographic_portrait_matting": resource_path(
+        "hivision/creator/weights/modnet_photographic_portrait_matting.onnx"
     ),
-    "modnet_photographic_portrait_matting": os.path.join(
-        os.path.dirname(__file__),
-        "weights",
-        "modnet_photographic_portrait_matting.onnx",
+    "mnn_hivision_modnet": resource_path(
+        "hivision/creator/weights/mnn_hivision_modnet.mnn"
     ),
-    "mnn_hivision_modnet": os.path.join(
-        os.path.dirname(__file__),
-        "weights",
-        "mnn_hivision_modnet.mnn",
-    ),
-    "rmbg-1.4": os.path.join(os.path.dirname(__file__), "weights", "rmbg-1.4.onnx"),
-    "birefnet-v1-lite": os.path.join(
-        os.path.dirname(__file__), "weights", "birefnet-v1-lite.onnx"
-    ),
+    "rmbg-1.4": resource_path("hivision/creator/weights/rmbg-1.4.onnx"),
+    "birefnet-v1-lite": resource_path("hivision/creator/weights/birefnet-v1-lite.onnx"),
 }
 
 ONNX_DEVICE = onnxruntime.get_device()

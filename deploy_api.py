@@ -21,6 +21,8 @@ from hivision.creator.retinaface import retinaface_detect_faces
 import numpy as np
 import cv2
 import os
+import sys
+from pathlib import Path
 from starlette.middleware.cors import CORSMiddleware
 from starlette.formparsers import MultiPartParser
 
@@ -29,17 +31,21 @@ MultiPartParser.max_part_size = 10 * 1024 * 1024  # 10MB
 # 设置Starlette文件上传大小限制
 MultiPartParser.max_file_size = 20 * 1024 * 1024   # 20MB
 
+def resource_path(rel_path: str) -> Path:
+    """Resolve resource path for both normal and PyInstaller-frozen execution."""
+    if getattr(sys, "frozen", False):
+        base_dir = Path(sys.executable).resolve().parent
+    else:
+        base_dir = Path(__file__).resolve().parent
+    return base_dir / rel_path
+
+
 app = FastAPI()
 creator = IDCreator()
 retinaface_sess = None
 mtcnn_detector = None
-RETINAFACE_MODEL_PATH = os.path.join(
-    os.path.dirname(__file__),
-    "hivision",
-    "creator",
-    "retinaface",
-    "weights",
-    "retinaface-resnet50.onnx",
+RETINAFACE_MODEL_PATH = resource_path(
+    "hivision/creator/retinaface/weights/retinaface-resnet50.onnx"
 )
 
 
@@ -678,4 +684,4 @@ if __name__ == "__main__":
     import uvicorn
 
     # 在8080端口运行推理服务
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=17520, use_colors=False)

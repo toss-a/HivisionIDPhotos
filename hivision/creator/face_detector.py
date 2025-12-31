@@ -7,6 +7,8 @@ r"""
 @Description:
     人脸检测器
 """
+from pathlib import Path
+import sys
 try:
     from mtcnnruntime import MTCNN
 except ImportError:
@@ -23,8 +25,17 @@ import os
 import numpy as np
 
 
+def resource_path(rel_path: str) -> Path:
+    """Resolve resource path for both normal and PyInstaller-frozen execution."""
+    if getattr(sys, "frozen", False):
+        base_dir = Path(sys.executable).resolve().parent
+    else:
+        base_dir = Path(__file__).resolve().parent
+    return base_dir / rel_path
+
+
 mtcnn = None
-base_dir = os.path.dirname(os.path.abspath(__file__))
+base_dir = resource_path("hivision/creator")
 RETINAFCE_SESS = None
 
 
@@ -177,7 +188,7 @@ def detect_face_retinaface(ctx: Context):
         tic = time()
         faces_dets, sess = retinaface_detect_faces(
             ctx.origin_image,
-            os.path.join(base_dir, "retinaface/weights/retinaface-resnet50.onnx"),
+            base_dir / "retinaface/weights/retinaface-resnet50.onnx",
             sess=None,
         )
         RETINAFCE_SESS = sess
@@ -185,7 +196,7 @@ def detect_face_retinaface(ctx: Context):
         tic = time()
         faces_dets, _ = retinaface_detect_faces(
             ctx.origin_image,
-            os.path.join(base_dir, "retinaface/weights/retinaface-resnet50.onnx"),
+            base_dir / "retinaface/weights/retinaface-resnet50.onnx",
             sess=RETINAFCE_SESS,
         )
 
