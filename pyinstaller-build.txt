@@ -1,0 +1,5 @@
+pyinstaller --onedir deploy_api.py ^
+ --add-data "hivision/plugin/template/assets;hivision/plugin/template/assets" ^
+ --add-data "hivision/plugin/font;hivision/plugin/font" ^
+ --add-data "hivision/plugin/beauty/lut;hivision/plugin/beauty/lut" ^
+ --add-data "C:\Users\PC\Desktop\1\WPy64-312101\python\Lib\site-packages\mtcnnruntime\weights;mtcnnruntime/weights"
