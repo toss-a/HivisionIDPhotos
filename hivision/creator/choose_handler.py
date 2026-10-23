@@ -6,9 +6,8 @@ from hivision.creator.human_matting import (
 from hivision.creator.face_detector import (
     detect_face_mtcnn,
     detect_face_retinaface,
-    detect_face_yunet,
 )
-from hivision.creator.human_detector import detect_person_as_face_matting, detect_person_as_face
+from hivision.creator.human_detector import detect_person_as_face_matting
 
 HUMAN_MATTING_MODELS = [
     "hivision_modnet",
@@ -16,7 +15,7 @@ HUMAN_MATTING_MODELS = [
     "rmbg-1.4",
 ]
 
-FACE_DETECT_MODELS = ["matting-person", "yolov8n-person", "yunet", "mtcnn", "retinaface-resnet50"]
+FACE_DETECT_MODELS = ["matting-person", "mtcnn", "retinaface-resnet50"]
 
 
 def choose_handler(creator, matting_model_option=None, face_detect_option=None):
@@ -29,11 +28,7 @@ def choose_handler(creator, matting_model_option=None, face_detect_option=None):
 
     if face_detect_option == "matting-person":
         creator.detection_handler = detect_person_as_face_matting
-    elif face_detect_option == "yolov8n-person":
-        creator.detection_handler = detect_person_as_face
     elif face_detect_option == "retinaface-resnet50":
         creator.detection_handler = detect_face_retinaface
-    elif face_detect_option == "yunet":
-        creator.detection_handler = detect_face_yunet
     else:
         creator.detection_handler = detect_face_mtcnn

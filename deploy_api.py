@@ -19,9 +19,9 @@ from starlette.middleware.cors import CORSMiddleware
 from hivision import IDCreator
 from hivision.error import FaceError
 from hivision.creator.choose_handler import choose_handler
-from hivision.creator.face_detector import get_mtcnn_detector, get_yunet_detector
+from hivision.creator.face_detector import get_mtcnn_detector
 from hivision.creator.retinaface import retinaface_detect_faces
-from hivision.creator.human_detector import detect_person_matting, detect_persons_yolov8
+from hivision.creator.human_detector import detect_person_matting
 from hivision.utils import save_image_dpi_to_file, get_resource_path
 
 app = FastAPI(title="HivisionIDPhotos Fast Service")
@@ -101,26 +101,6 @@ def _detect_faces(image_bgr: np.ndarray, model: str = "retinaface-resnet50", max
     if model == "matting-person":
         # 基于人像分割 Mask 的像素级全包络（包含衣服每一寸边缘，绝不切衣服）
         return detect_person_matting(image_bgr)
-    elif model == "yolov8n-person":
-        # 极速整个人体检测，无论正脸、侧脸、背影、低头均能精准包络
-        return detect_persons_yolov8(image_bgr)
-    elif model == "yunet":
-        detector = get_yunet_detector()
-        h_r, w_r = resized.shape[:2]
-        detector.setInputSize((w_r, h_r))
-        _, dets = detector.detect(resized)
-        if dets is not None:
-            for det in dets:
-                x, y, w_box, h_box = det[0:4]
-                score = det[-1]
-                x1 = x / scale
-                y1 = y / scale
-                x2 = (x + w_box) / scale
-                y2 = (y + h_box) / scale
-                faces.append({
-                    "box": [float(x1), float(y1), float(x2), float(y2)],
-                    "score": float(score),
-                })
     elif model == "mtcnn":
         detector = get_mtcnn_detector()
         dets, _ = detector.detect(resized)
