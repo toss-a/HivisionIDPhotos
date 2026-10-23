@@ -13,7 +13,7 @@ import onnxruntime
 from .tensor2numpy import NNormalize, NTo_Tensor, NUnsqueeze
 from .context import Context
 
-from hivision.utils import get_resource_path
+from hivision.utils import get_resource_path, get_onnx_session_options
 
 WEIGHTS = {
     "hivision_modnet": get_resource_path(
@@ -53,10 +53,11 @@ def get_cached_onnx_session(model_key: str, checkpoint_path: str):
         if ONNX_PROVIDER == "CUDAExecutionProvider"
         else ["CPUExecutionProvider"]
     )
+    sess_options = get_onnx_session_options()
     try:
-        sess = onnxruntime.InferenceSession(checkpoint_path, providers=providers)
+        sess = onnxruntime.InferenceSession(checkpoint_path, sess_options=sess_options, providers=providers)
     except Exception:
-        sess = onnxruntime.InferenceSession(checkpoint_path, providers=["CPUExecutionProvider"])
+        sess = onnxruntime.InferenceSession(checkpoint_path, sess_options=sess_options, providers=["CPUExecutionProvider"])
 
     _SESSIONS[model_key] = sess
     return sess
