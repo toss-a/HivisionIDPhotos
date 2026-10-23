@@ -44,7 +44,7 @@ def detect_face_mtcnn(ctx: Context, scale: int = 2):
     faces, landmarks = detector.detect(image, thresholds=[0.8, 0.8, 0.8])
 
     if len(faces) != 1:
-        faces, landmarks = detector.detect(raw_img)
+        faces, landmarks = detector.detect(ctx.origin_image)
     else:
         for item, param in enumerate(faces[0]):
             faces[0][item] = param * 2

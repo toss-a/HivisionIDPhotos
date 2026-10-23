@@ -172,9 +172,12 @@ def IDphotos_cut(x1, y1, x2, y2, img):
         (background_bgr, background_bgr, background_bgr, background_a)
     )
 
+    region = img[y1:y2, x1:x2]
+    if region.ndim == 3 and region.shape[2] == 3:
+        region = cv2.cvtColor(region, cv2.COLOR_BGR2BGRA)
     background[
         temp_y_1 : crop_size[0] - temp_y_2, temp_x_1 : crop_size[1] - temp_x_2
-    ] = img[y1:y2, x1:x2]
+    ] = region
 
     return background
 
