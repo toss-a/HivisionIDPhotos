@@ -8,7 +8,6 @@ r"""
     证件照调整
 """
 from .context import Context
-from .layout_calculator import generate_layout_array
 import hivision.creator.utils as U
 import numpy as np
 import math
@@ -114,22 +113,12 @@ def adjust_photo(ctx: Context):
         "h": h * resize_ratio_max,
     }
 
-    # Step7. 排版照参数获取
-    typography_arr, typography_rotate = generate_layout_array(
-        input_height=standard_size[0], input_width=standard_size[1]
-    )
-
     return (
         result_image_hd,
         result_image_standard,
-        clothing_params,
-        {
-            "arr": typography_arr,
-            "rotate": typography_rotate,
-        },
+        None,
+        None,
     )
-
-
 def IDphotos_cut(x1, y1, x2, y2, img):
     """
     在图片上进行滑动裁剪，输入输出为
