@@ -21,7 +21,7 @@ from hivision.error import FaceError
 from hivision.creator.choose_handler import choose_handler
 from hivision.creator.face_detector import get_mtcnn_detector, get_yunet_detector
 from hivision.creator.retinaface import retinaface_detect_faces
-from hivision.creator.human_detector import detect_persons_yolov8
+from hivision.creator.human_detector import detect_person_matting, detect_persons_yolov8
 from hivision.utils import save_image_dpi_to_file, get_resource_path
 
 app = FastAPI(title="HivisionIDPhotos Fast Service")
@@ -98,7 +98,10 @@ def _detect_faces(image_bgr: np.ndarray, model: str = "retinaface-resnet50", max
     scale = scale if scale > 0 else 1.0
     faces = []
 
-    if model == "yolov8n-person":
+    if model == "matting-person":
+        # 基于人像分割 Mask 的像素级全包络（包含衣服每一寸边缘，绝不切衣服）
+        return detect_person_matting(image_bgr)
+    elif model == "yolov8n-person":
         # 极速整个人体检测，无论正脸、侧脸、背影、低头均能精准包络
         return detect_persons_yolov8(image_bgr)
     elif model == "yunet":
@@ -217,7 +220,7 @@ class CropRequest(BaseModel):
     output_hd_path: str
     height: int = 413
     width: int = 295
-    face_detect_model: str = "yolov8n-person"
+    face_detect_model: str = "matting-person"
     hd: bool = True
     dpi: int = 300
     head_measure_ratio: float = 0.2
@@ -230,7 +233,7 @@ class CropHintRequest(BaseModel):
     input_path: str
     target_height: float = 101.6
     target_width: float = 152.4
-    face_detect_model: str = "yolov8n-person"
+    face_detect_model: str = "matting-person"
     padding_ratio: float = 0.25
     detect_max_side: int = 640
 
@@ -330,7 +333,7 @@ def photo_crop_hint_endpoint(req: CropHintRequest):
         img_h, img_w = img.shape[:2]
         faces = []
         detect_error = None
-        face_detect_model = req.face_detect_model or "yolov8n-person"
+        face_detect_model = req.face_detect_model or "matting-person"
 
         try:
             faces = _detect_faces(img, model=face_detect_model, max_side=req.detect_max_side)
