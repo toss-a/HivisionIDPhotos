@@ -13,17 +13,20 @@ import onnxruntime
 from .tensor2numpy import NNormalize, NTo_Tensor, NUnsqueeze
 from .context import Context
 
+from hivision.utils import get_resource_path
+
 WEIGHTS = {
-    "hivision_modnet": os.path.join(
-        os.path.dirname(__file__), "weights", "hivision_modnet.onnx"
+    "hivision_modnet": get_resource_path(
+        "hivision", "creator", "weights", "hivision_modnet.onnx"
     ),
-    "modnet_photographic_portrait_matting": os.path.join(
-        os.path.dirname(__file__),
+    "modnet_photographic_portrait_matting": get_resource_path(
+        "hivision",
+        "creator",
         "weights",
         "modnet_photographic_portrait_matting.onnx",
     ),
-    "rmbg-1.4": os.path.join(
-        os.path.dirname(__file__), "weights", "rmbg-1.4.onnx"
+    "rmbg-1.4": get_resource_path(
+        "hivision", "creator", "weights", "rmbg-1.4.onnx"
     ),
 }
 

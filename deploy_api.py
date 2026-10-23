@@ -21,7 +21,7 @@ from hivision.error import FaceError
 from hivision.creator.choose_handler import choose_handler
 from hivision.creator.face_detector import get_mtcnn_detector
 from hivision.creator.retinaface import retinaface_detect_faces
-from hivision.utils import save_image_dpi_to_file
+from hivision.utils import save_image_dpi_to_file, get_resource_path
 
 app = FastAPI(title="HivisionIDPhotos Fast Service")
 
@@ -36,13 +36,8 @@ app.add_middleware(
 
 creator = IDCreator()
 _RETINAFACE_SESS = None
-_RETINAFACE_MODEL_PATH = os.path.join(
-    os.path.dirname(__file__),
-    "hivision",
-    "creator",
-    "retinaface",
-    "weights",
-    "retinaface-resnet50.onnx",
+_RETINAFACE_MODEL_PATH = get_resource_path(
+    "hivision", "creator", "retinaface", "weights", "retinaface-resnet50.onnx"
 )
 
 
@@ -356,6 +351,8 @@ def photo_crop_hint_endpoint(req: CropHintRequest):
 
 
 if __name__ == "__main__":
+    import multiprocessing
+    multiprocessing.freeze_support()
     import uvicorn
 
     parser = argparse.ArgumentParser(description="HivisionIDPhotos Fast Service")

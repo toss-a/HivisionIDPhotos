@@ -19,8 +19,10 @@ except ImportError:
 
 _MTCNN = None
 _RETINAFACE_SESS = None
-_RETINAFACE_MODEL_PATH = os.path.join(
-    os.path.dirname(__file__), "retinaface", "weights", "retinaface-resnet50.onnx"
+from hivision.utils import get_resource_path
+
+_RETINAFACE_MODEL_PATH = get_resource_path(
+    "hivision", "creator", "retinaface", "weights", "retinaface-resnet50.onnx"
 )
 
 

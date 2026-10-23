@@ -4,10 +4,44 @@
 精简后的通用图像与数据处理工具
 """
 import io
+import os
+import sys
 import base64
 import numpy as np
 import cv2
 from PIL import Image
+
+
+def get_resource_path(*relative_parts: str) -> str:
+    """
+    智能获取资源/模型文件的绝对路径，自动适配常规源码运行、PyInstaller 单文件/单目录打包：
+    1. 优先尝试 PyInstaller 运行时解压/内部目录 (sys._MEIPASS)
+    2. 尝试可执行文件所在目录 (sys.executable 所在目录)
+    3. 尝试源码所在 hivision 根目录及当前工作目录
+    """
+    rel_path = os.path.join(*relative_parts)
+
+    candidate_roots = []
+
+    # 1. PyInstaller 运行时目录
+    if getattr(sys, "frozen", False):
+        if hasattr(sys, "_MEIPASS"):
+            candidate_roots.append(sys._MEIPASS)
+        candidate_roots.append(os.path.dirname(sys.executable))
+
+    # 2. 源码所在 hivision 根目录及工作目录
+    here = os.path.dirname(os.path.abspath(__file__))  # hivision/
+    repo_root = os.path.dirname(here)                 # repo root/
+    candidate_roots.extend([repo_root, here, os.getcwd()])
+
+    for root in candidate_roots:
+        target = os.path.join(root, rel_path)
+        if os.path.exists(target):
+            return target
+
+    # 如果未找到，默认返回首选候选路径
+    base = candidate_roots[0] if candidate_roots else ""
+    return os.path.join(base, rel_path)
 
 
 def save_image_dpi_to_bytes(image: np.ndarray, output_image_path: str = None, dpi: int = 300) -> bytes:
