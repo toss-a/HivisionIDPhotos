@@ -51,6 +51,7 @@ def run_build(onefile: bool = False):
             "--exclude-module", "scipy",
             "--exclude-module", "gradio",
             # 添加权重
+            "--add-data", f"hivision/creator/weights/face_detection_yunet_2023mar.onnx{os.pathsep}hivision/creator/weights",
             "--add-data", f"hivision/creator/weights/hivision_modnet.onnx{os.pathsep}hivision/creator/weights",
             "--add-data", f"hivision/creator/weights/rmbg-1.4.onnx{os.pathsep}hivision/creator/weights",
             "--add-data", f"hivision/creator/retinaface/weights/retinaface-resnet50.onnx{os.pathsep}hivision/creator/retinaface/weights",

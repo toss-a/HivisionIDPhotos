@@ -18,6 +18,7 @@ datas = collect_data_files('mtcnnruntime')
 
 # 2. 收集 hivision 内部权重文件
 weights_to_add = [
+    (os.path.join('hivision', 'creator', 'weights', 'face_detection_yunet_2023mar.onnx'), os.path.join('hivision', 'creator', 'weights')),
     (os.path.join('hivision', 'creator', 'weights', 'hivision_modnet.onnx'), os.path.join('hivision', 'creator', 'weights')),
     (os.path.join('hivision', 'creator', 'weights', 'modnet_photographic_portrait_matting.onnx'), os.path.join('hivision', 'creator', 'weights')),
     (os.path.join('hivision', 'creator', 'weights', 'rmbg-1.4.onnx'), os.path.join('hivision', 'creator', 'weights')),
