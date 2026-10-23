@@ -14,7 +14,7 @@ parser.add_argument("-o", "--output", required=True, help="输出图像保存路
 parser.add_argument("--height", type=int, default=413, help="目标高度(px)")
 parser.add_argument("--width", type=int, default=295, help="目标宽度(px)")
 parser.add_argument("--matting_model", default="rmbg-1.4", choices=["rmbg-1.4", "hivision_modnet", "modnet_photographic_portrait_matting"])
-parser.add_argument("--face_detect_model", default="yunet", choices=["yunet", "mtcnn", "retinaface-resnet50"])
+parser.add_argument("--face_detect_model", default="yolov8n-person", choices=["yolov8n-person", "yunet", "mtcnn", "retinaface-resnet50"])
 parser.add_argument("--dpi", type=int, default=300, help="输出 DPI")
 
 args = parser.parse_args()
