@@ -12,14 +12,16 @@ from PIL import Image
 
 def save_image_dpi_to_bytes(image: np.ndarray, output_image_path: str = None, dpi: int = 300) -> bytes:
     """
-    将图像数组保存为指定 DPI 的 PNG 字节流，并可选直接写入文件。
+    将 OpenCV (BGR/BGRA) 图像数组正确转换并保存为指定 DPI 的 PNG 字节流。
     """
     if len(image.shape) == 3 and image.shape[2] == 4:
-        # RGBA
-        pil_img = Image.fromarray(image, mode="RGBA")
+        # OpenCV 输出为 BGRA，PIL 期望 RGBA，必须转换通道避免人物皮肤偏蓝
+        rgba = cv2.cvtColor(image, cv2.COLOR_BGRA2RGBA)
+        pil_img = Image.fromarray(rgba, mode="RGBA")
     elif len(image.shape) == 3 and image.shape[2] == 3:
-        # RGB
-        pil_img = Image.fromarray(image, mode="RGB")
+        # OpenCV 输出为 BGR，PIL 期望 RGB
+        rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        pil_img = Image.fromarray(rgb, mode="RGB")
     else:
         pil_img = Image.fromarray(image)
 
@@ -36,12 +38,16 @@ def save_image_dpi_to_bytes(image: np.ndarray, output_image_path: str = None, dp
 
 def save_image_dpi_to_file(image: np.ndarray, output_image_path: str, dpi: int = 300):
     """
-    极速文件直接写入：将图像以指定 DPI 保存到目标路径
+    极速文件直接写入：将 OpenCV (BGR/BGRA) 图像以指定 DPI 保存到目标路径为标准 PNG (RGBA/RGB)
     """
     if len(image.shape) == 3 and image.shape[2] == 4:
-        pil_img = Image.fromarray(image, mode="RGBA")
+        # OpenCV 输出为 BGRA，PIL 期望 RGBA，必须转换通道避免人物皮肤偏蓝
+        rgba = cv2.cvtColor(image, cv2.COLOR_BGRA2RGBA)
+        pil_img = Image.fromarray(rgba, mode="RGBA")
     elif len(image.shape) == 3 and image.shape[2] == 3:
-        pil_img = Image.fromarray(image, mode="RGB")
+        # OpenCV 输出为 BGR，PIL 期望 RGB
+        rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        pil_img = Image.fromarray(rgb, mode="RGB")
     else:
         pil_img = Image.fromarray(image)
 
