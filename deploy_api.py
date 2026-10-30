@@ -21,7 +21,6 @@ from hivision.error import FaceError
 from hivision.creator.choose_handler import choose_handler
 from hivision.creator.face_detector import get_mtcnn_detector
 from hivision.creator.retinaface import retinaface_detect_faces
-from hivision.creator.human_detector import detect_person_matting
 from hivision.utils import save_image_dpi_to_file, get_resource_path
 
 app = FastAPI(title="HivisionIDPhotos Fast Service")
@@ -78,18 +77,56 @@ def _resize_for_detect(image: np.ndarray, max_side: int = 640):
 def _pick_main_face(faces, img_w, img_h):
     if not faces:
         return None
-    cx_img = img_w / 2
-    cy_img = img_h / 2
+    cx_img = img_w / 2.0
+    cy_img = img_h / 2.0
+    total_area = float(img_w * img_h) if img_w * img_h > 0 else 1.0
 
     def sort_key(face):
         x1, y1, x2, y2 = face["box"]
-        area = (x2 - x1) * (y2 - y1)
-        cx = x1 + (x2 - x1) / 2
-        cy = y1 + (y2 - y1) / 2
+        area = max(0.0, x2 - x1) * max(0.0, y2 - y1)
+        cx = (x1 + x2) / 2.0
+        cy = (y1 + y2) / 2.0
+        area_ratio = min(1.0, area / total_area)
         dist_penalty = ((cx - cx_img) / img_w) ** 2 + ((cy - cy_img) / img_h) ** 2
-        return (face.get("score", 0), area, -dist_penalty)
+        score = float(face.get("score", 1.0))
+        # 综合打分：人脸面积权重 70%，居中度权重 30%，避免微弱置信度浮点差导致选错主角
+        return (area_ratio * 0.7 - dist_penalty * 0.3) * max(0.1, score)
 
     return sorted(faces, key=sort_key, reverse=True)[0]
+
+
+def _map_box_from_upright(box, upright_w, upright_h, rotation):
+    """
+    将正立图像中的人脸坐标映射回经历过 rotation (顺时针旋转) 的图像坐标系
+    rotation 表示正立图顺时针旋转到当前输入图的角度 (0, 90, 180, 270)
+    """
+    x1, y1, x2, y2 = box
+    r = rotation % 360
+    if r == 90:
+        # 正立图 (upright_w, upright_h) -> 顺时针 90° -> (upright_h, upright_w)
+        # 点 (x, y) 顺时针转 90°: (upright_h - y, x)
+        return [
+            max(0.0, upright_h - y2),
+            max(0.0, x1),
+            max(0.0, upright_h - y1),
+            max(0.0, x2)
+        ]
+    elif r == 180:
+        return [
+            max(0.0, upright_w - x2),
+            max(0.0, upright_h - y2),
+            max(0.0, upright_w - x1),
+            max(0.0, upright_h - y1)
+        ]
+    elif r == 270:
+        # 点 (x, y) 顺时针转 270° (逆时针 90°): (y, upright_w - x)
+        return [
+            max(0.0, y1),
+            max(0.0, upright_w - x2),
+            max(0.0, y2),
+            max(0.0, upright_w - x1)
+        ]
+    return [x1, y1, x2, y2]
 
 
 def _detect_faces(image_bgr: np.ndarray, model: str = "retinaface-resnet50", max_side: int = 640):
@@ -98,10 +135,7 @@ def _detect_faces(image_bgr: np.ndarray, model: str = "retinaface-resnet50", max
     scale = scale if scale > 0 else 1.0
     faces = []
 
-    if model == "matting-person":
-        # 基于人像分割 Mask 的像素级全包络（包含衣服每一寸边缘，绝不切衣服）
-        return detect_person_matting(image_bgr)
-    elif model == "mtcnn":
+    if model == "mtcnn":
         detector = get_mtcnn_detector()
         dets, _ = detector.detect(resized)
         if dets is not None:
@@ -113,6 +147,7 @@ def _detect_faces(image_bgr: np.ndarray, model: str = "retinaface-resnet50", max
                         "score": float(score),
                     })
     else:
+        # 默认采用 retinaface-resnet50
         if not os.path.exists(_RETINAFACE_MODEL_PATH):
             raise FileNotFoundError(f"未找到 RetinaFace 权重: {_RETINAFACE_MODEL_PATH}")
         dets, _RETINAFACE_SESS = retinaface_detect_faces(
@@ -200,7 +235,7 @@ class CropRequest(BaseModel):
     output_hd_path: str
     height: int = 413
     width: int = 295
-    face_detect_model: str = "matting-person"
+    face_detect_model: str = "retinaface-resnet50"
     hd: bool = True
     dpi: int = 300
     head_measure_ratio: float = 0.2
@@ -213,9 +248,10 @@ class CropHintRequest(BaseModel):
     input_path: str
     target_height: float = 101.6
     target_width: float = 152.4
-    face_detect_model: str = "matting-person"
+    face_detect_model: str = "retinaface-resnet50"
     padding_ratio: float = 0.25
     detect_max_side: int = 640
+    rotation: int = 0
 
 
 # ================== 核心 API 端点 ==================
@@ -307,16 +343,51 @@ def idphoto_crop_endpoint(req: CropRequest):
 def photo_crop_hint_endpoint(req: CropHintRequest):
     """
     智能裁切建议框计算：基于人脸识别计算出目标宽高比最佳安全框
+    支持 rotation 参数 (顺时针旋转角度)，在正立状态下识别人脸并正确映射回当前图像坐标
     """
     try:
         img = read_image_file(req.input_path, cv2.IMREAD_COLOR)
         img_h, img_w = img.shape[:2]
         faces = []
         detect_error = None
-        face_detect_model = req.face_detect_model or "matting-person"
+        face_detect_model = req.face_detect_model or "retinaface-resnet50"
+        rotation = int(req.rotation or 0) % 360
+
+        # 如果输入图像被顺时针旋转了 rotation 度，逆向转回正立朝向进行人脸/人体检测
+        detect_img = img
+        if rotation == 90:
+            detect_img = cv2.rotate(img, cv2.ROTATE_90_COUNTERCLOCKWISE)
+        elif rotation == 180:
+            detect_img = cv2.rotate(img, cv2.ROTATE_180)
+        elif rotation == 270:
+            detect_img = cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE)
+
+        upright_h, upright_w = detect_img.shape[:2]
 
         try:
-            faces = _detect_faces(img, model=face_detect_model, max_side=req.detect_max_side)
+            raw_faces = _detect_faces(detect_img, model=face_detect_model, max_side=req.detect_max_side)
+
+            # 自适应探测容错：如果未指定旋转角度 (rotation=0) 且未检出人脸，尝试探测 90°/270°/180°
+            applied_rotation = rotation
+            if not raw_faces and rotation == 0:
+                for alt_r, rot_code in [(90, cv2.ROTATE_90_CLOCKWISE), (270, cv2.ROTATE_90_COUNTERCLOCKWISE), (180, cv2.ROTATE_180)]:
+                    alt_img = cv2.rotate(img, rot_code)
+                    test_faces = _detect_faces(alt_img, model=face_detect_model, max_side=req.detect_max_side)
+                    if test_faces:
+                        raw_faces = test_faces
+                        upright_h, upright_w = alt_img.shape[:2]
+                        # alt_img 是 img 顺时针旋转 alt_r 后的图像
+                        # 那么 img 相对于正立的 alt_img 相当于顺时针旋转了 (360 - alt_r)
+                        applied_rotation = (360 - alt_r) % 360
+                        break
+
+            # 将在正立图上检测出的人脸映射回传入图像坐标系
+            for f in raw_faces:
+                mapped_box = _map_box_from_upright(f["box"], upright_w, upright_h, applied_rotation)
+                faces.append({
+                    "box": mapped_box,
+                    "score": f.get("score", 1.0)
+                })
         except Exception as exc:
             detect_error = str(exc)
 
@@ -338,6 +409,7 @@ def photo_crop_hint_endpoint(req: CropHintRequest):
             "target_ratio": target_ratio,
             "crop_box": crop_box,
             "detect_error": detect_error,
+            "rotation": rotation,
         }
 
         if main_face:
